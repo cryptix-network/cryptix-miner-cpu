@@ -1,6 +1,11 @@
-# Cryptix-miner
+# Cryptix-miner CPU only
 
-A Rust binary for file encryption to multiple participants. 
+A Rust binary for file encryption to multiple participants. Supports only local Mining on a local Node, no Stratum Support.
+
+For a Stratum Support Miner use: 
+
+[Cryptix Miner GPU & CPU](https://github.com/cryptix-network/cryptix-miner)
+
 
 
 ## Installation
@@ -12,7 +17,7 @@ cargo install cryptix-miner
 ```
 
 ### From Binaries
-The [release page](https://github.com/elichai/cryptix-miner/releases) includes precompiled binaries for Linux, macOS and Windows.
+The [release page](https://github.com/cryptix-network/cryptix-miner/releases) includes precompiled binaries for Linux, macOS and Windows.
 
 
 # Usage
@@ -56,6 +61,7 @@ This will run the miner on 4 CPU cores.
 The devfund is a fund managed by the Cryptix community in order to fund Cryptix development <br>
 Devfund is 1%
 
-# Donation Address
-`cryptix:cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
-`cryptix:qzvqtx5gkvl3tc54up6r8pk5mhuft9rtr0lvn624w9mtv4eqm9rvc9zfdmmpu`
+# Donation Address & Kudos
+`cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
+
+ [elichai](https://github.com/elichai )`kaspa:qzvqtx5gkvl3tc54up6r8pk5mhuft9rtr0lvn624w9mtv4eqm9rvc9zfdmmpu`
