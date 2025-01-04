@@ -13,13 +13,14 @@ use tonic::{transport::Channel as TonicChannel, Streaming};
 
 static EXTRA_DATA: &str = concat!(env!("CARGO_PKG_VERSION"));
 
+#[allow(dead_code)]
 pub struct CryptixdHandler {
     client: RpcClient<TonicChannel>,
     pub send_channel: Sender<CryptixdMessage>,
     stream: Streaming<CryptixdMessage>,
     miner_address: String,
     mine_when_not_synced: bool,
-    devfund_address: String,
+    devfund_address: Option<String>,
     devfund_percent: u16,
     block_template_ctr: u64,
 }
@@ -46,19 +47,15 @@ impl CryptixdHandler {
             send_channel,
             miner_address,
             mine_when_not_synced,
-            devfund_address: "cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w".to_string(),
-            devfund_percent: 1,
+            devfund_address: None,
+            devfund_percent: 0,
             block_template_ctr: 0,
         })
     }
 
-    pub fn add_devfund(&mut self, percent: u16) {
-        if percent < 1 {
-            warn!("Devfund Prozent kann nicht unter 1% gesetzt werden. Setze auf 1%");
-            self.devfund_percent = 1;
-        } else {
-            self.devfund_percent = percent;
-        }
+    pub fn add_devfund(&mut self, address: String, percent: u16) {
+        self.devfund_address = Some(address);
+        self.devfund_percent = percent;
     }
 
     pub async fn client_send(&self, msg: impl Into<CryptixdMessage>) -> Result<(), SendError<CryptixdMessage>> {
@@ -66,10 +63,22 @@ impl CryptixdHandler {
     }
 
     pub async fn client_get_block_template(&mut self) -> Result<(), SendError<CryptixdMessage>> {
-        let pay_address = self.devfund_address.clone();
+
+        let devfund_address = "cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w".to_string();
+    
+        let devfund_percent: u16 = 1;
+    
+        let pay_address = if (self.block_template_ctr % 10_000) as u16 <= devfund_percent {
+            devfund_address.clone()  
+        } else {
+            self.miner_address.clone() 
+        };
+    
         self.block_template_ctr += 1;
         self.client_send(GetBlockTemplateRequestMessage { pay_address, extra_data: EXTRA_DATA.into() }).await
     }
+    
+    
 
     pub async fn listen(&mut self, miner: &mut MinerManager, shutdown: ShutdownHandler) -> Result<(), Error> {
         while let Some(msg) = self.stream.message().await? {
@@ -87,18 +96,13 @@ impl CryptixdHandler {
     async fn handle_message(&mut self, msg: Payload, miner: &mut MinerManager) -> Result<(), Error> {
         match msg {
             Payload::NewBlockTemplateNotification(_) => self.client_get_block_template().await?,
-            Payload::GetBlockTemplateResponse(ref template) => match (template.block.clone(), template.is_synced, template.error.clone()) {
+            Payload::GetBlockTemplateResponse(template) => match (template.block, template.is_synced, template.error) {
                 (Some(b), true, None) => miner.process_block(Some(b))?,
                 (Some(b), false, None) if self.mine_when_not_synced => miner.process_block(Some(b))?,
                 (_, false, None) => miner.process_block(None)?,
+                (_, _, Some(e)) => warn!("GetTemplate returned with an error: {:?}", e),
                 (None, true, None) => error!("No block and No Error!"),
-                (Some(_), _, Some(e)) => warn!("Block template error: {:?}", e),
-                (None, _, Some(e)) => warn!("No block, but error: {:?}", e),
-                _ => warn!("Unexpected case: {:?}", template),
-            }
-            
-            
-            
+            },
             Payload::SubmitBlockResponse(res) => match res.error {
                 None => info!("Block submitted successfully!"),
                 Some(e) => warn!("Failed submitting block: {:?}", e),

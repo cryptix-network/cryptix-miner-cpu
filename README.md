@@ -1,12 +1,6 @@
-# Cryptix-miner CPU only
+# Cryptix-miner
 
-A Rust binary for file encryption to multiple participants. This Miner supports only local Mining, no Stratum.
-
-
-For a GPU & CPU Miner with Stratum Support use:
-
-
-[Cryptix CPU & GPU Miner](https://github.com/cryptix-network/cryptix-miner/) 
+A Rust binary for file encryption to multiple participants. 
 
 
 ## Installation
@@ -18,7 +12,7 @@ cargo install cryptix-miner
 ```
 
 ### From Binaries
-The [release page](https://github.com/cryptix-network/cryptix-miner-cpu/releases) includes precompiled binaries for Linux, macOS and Windows.
+The [release page](https://github.com/elichai/cryptix-miner/releases) includes precompiled binaries for Linux, macOS and Windows.
 
 
 # Usage
@@ -26,7 +20,7 @@ To start mining you need to run [cryptixd](https://github.com/cryptix-network/ru
 
 Help:
 ```
-cryptix-miner 0.2.6
+cryptix-miner 0.2.1
 A Cryptix high performance CPU miner
 
 USAGE:
@@ -66,7 +60,6 @@ A miner that wants to mine a percentage into the dev-fund can pass the following
 `cryptix-miner --mining-address= XXX --devfund=cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w` <br>
 and can pass `--devfund-precent=XX.YY` to mine only XX.YY% of the blocks into the devfund (passing `--devfund` without specifying a percent will default to 1%)
 
-# Donation Address & Kudos
+# Donation Address
 `cryptix:cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
-
- [elichai](https://github.com/elichai) `kaspa:qzvqtx5gkvl3tc54up6r8pk5mhuft9rtr0lvn624w9mtv4eqm9rvc9zfdmmpu`
+`cryptix:qzvqtx5gkvl3tc54up6r8pk5mhuft9rtr0lvn624w9mtv4eqm9rvc9zfdmmpu`

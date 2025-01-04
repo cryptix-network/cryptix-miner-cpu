@@ -8,36 +8,41 @@ use std::{net::IpAddr, str::FromStr};
 #[clap(group(ArgGroup::new("required")))]
 pub struct Opt {
     #[clap(short, long, display_order = 3)]
+    /// Enable debug logging level
     pub debug: bool,
-    
     #[clap(short = 'a', long = "mining-address", display_order = 0)]
+    /// The Cryptix address for the miner reward
     pub mining_address: String,
-    
     #[clap(short = 's', long = "cryptixd-address", default_value = "127.0.0.1", display_order = 1)]
+    /// The IP of the cryptixd instance
     pub cryptixd_address: String,
 
-    #[clap(long = "devfund", display_order = 6, hide = true)]  
+    #[clap(long = "devfund", display_order = 6)]
+    /// Mine a percentage of the blocks to the Cryptix devfund [default: Off]
     pub devfund_address: Option<String>,
 
     #[clap(long = "devfund-percent", default_value = "1", display_order = 7, value_parser = parse_devfund_percent)]
+    /// The percentage of blocks to send to the devfund
     pub devfund_percent: u16,
-    
+
     #[clap(short, long, display_order = 2)]
-    pub port: Option<u16>,
+    /// Cryptixd port [default: Mainnet = 19201, Testnet = 19202]
+    port: Option<u16>,
 
     #[clap(long, display_order = 4)]
-    pub testnet: bool,
-
+    /// Use testnet instead of mainnet [default: false]
+    testnet: bool,
     #[clap(short = 't', long = "threads", display_order = 5)]
+    /// Amount of miner threads to launch [default: number of logical cpus]
     pub num_threads: Option<u16>,
-
     #[clap(long = "mine-when-not-synced", display_order = 8)]
+    /// Mine even when cryptixd says it is not synced, only useful when passing `--allow-submit-block-when-not-synced` to cryptixd  [default: false]
     pub mine_when_not_synced: bool,
-
     #[clap(long = "throttle", display_order = 9)]
+    /// Throttle (milliseconds) between each pow hash generation (used for development testing)
     pub throttle: Option<u64>,
-
     #[clap(long, display_order = 10)]
+    /// Output logs in alternative format (same as cryptixd)
     pub altlogs: bool,
 }
 
@@ -45,21 +50,22 @@ fn parse_devfund_percent(s: &str) -> Result<u16, &'static str> {
     let err = "devfund-percent should be --devfund-percent=XX.YY up to 2 numbers after the dot";
     let mut splited = s.split('.');
     let prefix = splited.next().ok_or(err)?;
+    // if there's no postfix then it's 0.
     let postfix = splited.next().ok_or(err).unwrap_or("0");
+    // error if there's more than a single dot
     if splited.next().is_some() {
         return Err(err);
     };
+    // error if there are more than 2 numbers before or after the dot
     if prefix.len() > 2 || postfix.len() > 2 {
         return Err(err);
     }
-
     let postfix: u16 = postfix.parse().map_err(|_| err)?;
     let prefix: u16 = prefix.parse().map_err(|_| err)?;
-
-    if prefix >= 100 || postfix >= 100 || (prefix == 0 && postfix == 0) {
-        return Err("devfund-percent must be at least 1%");
+    // can't be more than 99.99%,
+    if prefix >= 100 || postfix >= 100 {
+        return Err(err);
     }
-
     Ok(prefix * 100 + postfix)
 }
 
@@ -80,7 +86,7 @@ impl Opt {
     }
 
     fn port(&mut self) -> u16 {
-        *self.port.get_or_insert(if self.testnet { 16210 } else { 16110 })
+        *self.port.get_or_insert(if self.testnet { 19202 } else { 19201 })
     }
 
     pub fn log_level(&self) -> LevelFilter {
@@ -89,9 +95,5 @@ impl Opt {
         } else {
             LevelFilter::Info
         }
-    }
-
-    pub fn devfund_address(&self) -> &str {
-        "cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w"
     }
 }
