@@ -1,1 +1,1 @@
-cryptix-miner-cpu -s 127.0.0.1 -p 19201 --mining-address cryptix:cryptix:cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w --threads 4
+cryptix-miner-cpu -s 127.0.0.1 -p 19201 --mining-address cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w --threads 4
