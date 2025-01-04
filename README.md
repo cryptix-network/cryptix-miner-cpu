@@ -62,4 +62,5 @@ and can pass `--devfund-precent=XX.YY` to mine only XX.YY% of the blocks into th
 
 # Donation Address & Kudos
 `cryptix:cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
+
  [elichai](https://github.com/elichai) `kaspa:qzvqtx5gkvl3tc54up6r8pk5mhuft9rtr0lvn624w9mtv4eqm9rvc9zfdmmpu`
