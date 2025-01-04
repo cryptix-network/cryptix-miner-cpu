@@ -1,6 +1,12 @@
 # Cryptix-miner CPU only
 
-A Rust binary for file encryption to multiple participants. 
+A Rust binary for file encryption to multiple participants. This Miner support only local Mining, no Stratum.
+
+
+For a GPU & CPU Miner with Stratum Support use:
+
+
+[Cryptix CPU & GPU Miner](https://github.com/cryptix-network/cryptix-miner/) 
 
 
 ## Installation
