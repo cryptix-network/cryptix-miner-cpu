@@ -41,8 +41,6 @@ FLAGS:
     -V, --version                 Prints version information
 
 OPTIONS:
-        --devfund <devfund-address>            Mine a percentage of the blocks to the Cryptix devfund [default: Off]
-        --devfund-percent <devfund-percent>    The percentage of blocks to send to the devfund [default: 1]
     -s, --cryptixd-address <cryptixd-address>      The IP of the cryptixd instance [default: 127.0.0.1]
     -a, --mining-address <mining-address>      The Cryptix address for the miner reward
     -t, --threads <num-threads>                Amount of miner threads to launch [default: number of logical cpus]
