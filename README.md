@@ -12,7 +12,7 @@ cargo install cryptix-miner
 ```
 
 ### From Binaries
-The [release page](https://github.com/elichai/cryptix-miner/releases) includes precompiled binaries for Linux, macOS and Windows.
+The [release page](https://github.com/cryptix-network/cryptix-miner-cpu/releases) includes precompiled binaries for Linux, macOS and Windows.
 
 
 # Usage
