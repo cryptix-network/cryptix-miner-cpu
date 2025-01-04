@@ -62,9 +62,7 @@ This will run the miner on 4 CPU cores.
 
 # Devfund
 The devfund is a fund managed by the Cryptix community in order to fund Cryptix development <br>
-A miner that wants to mine a percentage into the dev-fund can pass the following flags: <br>
-`cryptix-miner --mining-address= XXX --devfund=cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w` <br>
-and can pass `--devfund-precent=XX.YY` to mine only XX.YY% of the blocks into the devfund (passing `--devfund` without specifying a percent will default to 1%)
+Devfund is 1%
 
 # Donation Address & Kudos
 `cryptix:cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
