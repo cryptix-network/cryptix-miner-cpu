@@ -1,4 +1,4 @@
-# Cryptix-miner
+# Cryptix-miner CPU only
 
 A Rust binary for file encryption to multiple participants. 
 
@@ -20,7 +20,7 @@ To start mining you need to run [cryptixd](https://github.com/cryptix-network/ru
 
 Help:
 ```
-cryptix-miner 0.2.1
+cryptix-miner 0.2.6
 A Cryptix high performance CPU miner
 
 USAGE:
