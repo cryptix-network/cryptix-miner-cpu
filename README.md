@@ -35,8 +35,6 @@ FLAGS:
     -V, --version                 Prints version information
 
 OPTIONS:
-        --devfund <devfund-address>            Mine a percentage of the blocks to the Cryptix devfund [default: Off]
-        --devfund-percent <devfund-percent>    The percentage of blocks to send to the devfund [default: 1]
     -s, --cryptixd-address <cryptixd-address>      The IP of the cryptixd instance [default: 127.0.0.1]
     -a, --mining-address <mining-address>      The Cryptix address for the miner reward
     -t, --threads <num-threads>                Amount of miner threads to launch [default: number of logical cpus]
@@ -56,9 +54,7 @@ This will run the miner on 4 CPU cores.
 
 # Devfund
 The devfund is a fund managed by the Cryptix community in order to fund Cryptix development <br>
-A miner that wants to mine a percentage into the dev-fund can pass the following flags: <br>
-`cryptix-miner --mining-address= XXX --devfund=cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w` <br>
-and can pass `--devfund-precent=XX.YY` to mine only XX.YY% of the blocks into the devfund (passing `--devfund` without specifying a percent will default to 1%)
+Devfund is 1%
 
 # Donation Address
 `cryptix:cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
