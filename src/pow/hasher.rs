@@ -49,7 +49,6 @@ impl PowHasher {
     }
     
     
-    
 }
 
 impl HeavyHasher {
