@@ -86,6 +86,18 @@ impl MinerManager {
         throttle: Option<Duration>,
     ) -> impl Iterator<Item = MinerHandler> {
         let n_cpus = get_num_cpus(n_cpus);
+        info!("   _____                  _   _      ");
+        info!("  / ____|                | | (_)     ");
+        info!(" | |     _ __ _   _ _ __ | |_ ___  __");
+        info!(" | |    | '__| | | | '_ \\| __| \\ \\/ /");
+        info!(" | |____| |  | |_| | |_) | |_| |>  < ");
+        info!("  \\_____|_|   \\__, | .__/ \\__|_/_/\\_\\");
+        info!("               __/ | |               ");
+        info!("              |___/|_|                ");
+        info!("                                      ");
+        info!("=================================================================================");
+        info!("                 Cryptix-Miner CPU");
+        info!("=================================================================================");
         info!("Launching: {} cpu miners", n_cpus);
         (0..n_cpus).map(move |_| {
             Self::launch_cpu_miner(
