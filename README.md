@@ -7,6 +7,10 @@ For a Stratum Support and GPU Support Miner use:
 [Cryptix Miner GPU & CPU](https://github.com/cryptix-network/cryptix-miner)
 
 
+### Supports:
+- Local Mining on Node via 127.0.0.1
+- HTTP Mining on Node via Webaddress not supported now
+- Stratum Mining on Pool not supported now
 
 ## Installation
 ### From Sources
