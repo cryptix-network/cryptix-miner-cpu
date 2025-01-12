@@ -48,12 +48,12 @@ OPTIONS:
 
 To start mining you just need to run the following:
 
-`./cryptix-miner -s 127.0.0.1 -p 19201 --mining-address cryptix:XXXXX`
+`./cryptix-miner-cpu -s 127.0.0.1 -p 19201 --mining-address cryptix:XXXXX`
 
 
 This will run the miner on all the available CPU cores.
 
-`./cryptix-miner -s 127.0.0.1 -p 19201 --mining-address cryptix:XXXXX --threads 4 `
+`./cryptix-miner-cpu -s 127.0.0.1 -p 19201 --mining-address cryptix:XXXXX --threads 4 `
 
 This will run the miner on 4 CPU cores.
 
