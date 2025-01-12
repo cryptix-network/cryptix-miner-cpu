@@ -25,7 +25,7 @@ To start mining you need to run [cryptixd](https://github.com/cryptix-network/ru
 
 Help:
 ```
-cryptix-miner 0.2.1
+cryptix-miner 0.2.6
 A Cryptix high performance CPU miner
 
 USAGE:
@@ -65,6 +65,9 @@ The devfund is a fund managed by the Cryptix community in order to fund Cryptix 
 Devfund is 1%
 
 # Donation Address & Kudos
-`cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
+Cryptis: `cryptix:qrjefk2r8wp607rmyvxmgjansqcwugjazpu2kk2r7057gltxetdvk8gl9fs0w`
 
  [elichai](https://github.com/elichai )`kaspa:qzvqtx5gkvl3tc54up6r8pk5mhuft9rtr0lvn624w9mtv4eqm9rvc9zfdmmpu`
+
+# Kudos
+ [elichai](https://github.com/elichai )
