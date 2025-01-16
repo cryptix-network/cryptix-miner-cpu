@@ -101,31 +101,42 @@ impl Matrix {
     }
 
     pub fn heavy_hash(&self, hash: Hash) -> Hash {
-        let hash = hash.to_le_bytes();
-        // SAFETY: An uninitialized MaybrUninit is always safe.
-        let mut vec: [MaybeUninit<u8>; 64] = unsafe { MaybeUninit::uninit().assume_init() };
-        for i in 0..32 {
-            vec[2 * i].write(hash[i] >> 4);
-            vec[2 * i + 1].write(hash[i] & 0x0F);
+        // Konvertiere den Hash in seine Byte-Darstellung
+        let hash_bytes = hash.to_le_bytes();
+    
+        // Erstelle ein Array, das die Nibbles (4-Bit-Hälften der Bytes) enthält
+        let mut nibbles = [0u8; 64];
+        for (i, &byte) in hash_bytes.iter().enumerate() {
+            nibbles[2 * i] = byte >> 4;
+            nibbles[2 * i + 1] = byte & 0x0F;
         }
-        // SAFETY: The loop above wrote into all indexes.
-        let vec: [u8; 64] = unsafe { std::mem::transmute(vec) };
-
-        // Matrix-vector multiplication, convert to 4 bits, and then combine back to 8 bits.
-        let mut product: [u8; 32] = array_from_fn(|i| {
-            let mut sum1 = 0;
-            let mut sum2 = 0;
-            for (j, &elem) in vec.iter().enumerate() {
-                sum1 += self.0[2 * i][j] * u16::from(elem);
-                sum2 += self.0[2 * i + 1][j] * u16::from(elem);
+    
+        // Matrix- und Vektormultiplikation
+        let mut product = [0u8; 32];
+        for i in 0..32 {
+            let mut sum1: u16 = 0;
+            let mut sum2: u16 = 0;
+    
+            for j in 0..64 {
+                let elem = nibbles[j] as u16;
+                sum1 += self.0[2 * i][j] * elem;
+                sum2 += self.0[2 * i + 1][j] * elem;
             }
-            ((sum1 >> 10) << 4) as u8 | (sum2 >> 10) as u8
-        });
-
-        // Concatenate 4 LSBs back to 8 bit xor with sum1
-        product.iter_mut().zip(hash).for_each(|(p, h)| *p ^= h);
+    
+            // Kombiniere die Nibbles zurück in Bytes
+            let a_nibble = (sum1 & 0xF) ^ ((sum2 >> 4) & 0xF) ^ ((sum1 >> 8) & 0xF);
+            let b_nibble = (sum2 & 0xF) ^ ((sum1 >> 4) & 0xF) ^ ((sum2 >> 8) & 0xF);
+    
+            product[i] = ((a_nibble << 4) | b_nibble) as u8;
+        }
+    
+        // XOR das Produkt mit dem ursprünglichen Hash
+        product.iter_mut().zip(hash_bytes.iter()).for_each(|(p, h)| *p ^= h);
+    
+        // Rückgabe des berechneten Hashes
         HeavyHasher::hash(Hash::from_le_bytes(product))
     }
+    
 }
 
 pub fn array_from_fn<F, T, const N: usize>(mut cb: F) -> [T; N]
