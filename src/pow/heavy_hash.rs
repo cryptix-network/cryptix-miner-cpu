@@ -101,17 +101,17 @@ impl Matrix {
     }
 
     pub fn heavy_hash(&self, hash: Hash) -> Hash {
-        // Konvertiere den Hash in seine Byte-Darstellung
+        // Convert the hash to its byte representation
         let hash_bytes = hash.to_le_bytes();
     
-        // Erstelle ein Array, das die Nibbles (4-Bit-Hälften der Bytes) enthält
+        // Create an array containing the nibbles (4-bit halves of the bytes)
         let mut nibbles = [0u8; 64];
         for (i, &byte) in hash_bytes.iter().enumerate() {
             nibbles[2 * i] = byte >> 4;
             nibbles[2 * i + 1] = byte & 0x0F;
         }
     
-        // Matrix- und Vektormultiplikation
+        // Matrix and vector multiplication
         let mut product = [0u8; 32];
         for i in 0..32 {
             let mut sum1: u16 = 0;
@@ -123,17 +123,17 @@ impl Matrix {
                 sum2 += self.0[2 * i + 1][j] * elem;
             }
     
-            // Kombiniere die Nibbles zurück in Bytes
+            // Combine the nibbles back into bytes
             let a_nibble = (sum1 & 0xF) ^ ((sum2 >> 4) & 0xF) ^ ((sum1 >> 8) & 0xF);
             let b_nibble = (sum2 & 0xF) ^ ((sum1 >> 4) & 0xF) ^ ((sum2 >> 8) & 0xF);
     
             product[i] = ((a_nibble << 4) | b_nibble) as u8;
         }
     
-        // XOR das Produkt mit dem ursprünglichen Hash
+        // XOR the product with the original hash
         product.iter_mut().zip(hash_bytes.iter()).for_each(|(p, h)| *p ^= h);
     
-        // Rückgabe des berechneten Hashes
+        // Return the calculated hash
         HeavyHasher::hash(Hash::from_le_bytes(product))
     }
     
