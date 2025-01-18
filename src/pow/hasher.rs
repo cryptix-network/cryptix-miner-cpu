@@ -39,11 +39,7 @@ impl PowHasher {
     pub(super) fn finalize_with_nonce(mut self, nonce: u64) -> Hash {
         self.0[9] ^= nonce;
         super::keccak::f1600(&mut self.0);
-    
-        let mut second_hash = self.0.clone(); 
-        super::keccak::f1600(&mut second_hash); 
-        
-        Hash::new(second_hash[..4].try_into().unwrap())
+        Hash::new(self.0[..4].try_into().unwrap())
     }
     
     
