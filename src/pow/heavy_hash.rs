@@ -144,6 +144,10 @@ impl Matrix {
         // XOR the product with the original hash
         product.iter_mut().zip(hash_bytes.iter()).for_each(|(p, h)| *p ^= h);
 
+                        // final xor
+                        for i in 0..32 {
+                            product[i] ^= Self::final_x[i];
+                        }
     
         // Return the calculated hash
         HeavyHasher::hash(Hash::from_le_bytes(product))
