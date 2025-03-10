@@ -64,21 +64,27 @@ impl State {
     }
 
     // Calculate Blake3 rounds based on input
-    fn calculate_b3_rounds(input: [u8; 32]) -> usize {
-        let slice: [u8; 4] = input[B3_ROUND_OFFSET..B3_ROUND_OFFSET + ROUND_RANGE_SIZE]
-            .try_into()
-            .unwrap();
-        let value = u32::from_le_bytes(slice);
-        (value % 3 + 1) as usize // Rounds between 1 and 3
+    fn calculate_b3_rounds(input: [u8; 32]) -> Result<usize, String> {
+        let slice = &input[B3_ROUND_OFFSET..B3_ROUND_OFFSET + ROUND_RANGE_SIZE];
+
+        if slice.len() == ROUND_RANGE_SIZE {
+            let value = u32::from_le_bytes(slice.try_into().map_err(|_| "Failed to convert slice to u32".to_string())?);
+            Ok((value % 3 + 1) as usize) // Rounds between 1 and 3
+        } else {
+            Err("Input slice for Blake3 rounds is invalid".to_string())
+        }
     }
 
     // Calculate SHA3 rounds based on input
-    fn calculate_sha3_rounds(input: [u8; 32]) -> usize {
-        let slice: [u8; 4] = input[SHA3_ROUND_OFFSET..SHA3_ROUND_OFFSET + ROUND_RANGE_SIZE]
-            .try_into()
-            .unwrap();
-        let value = u32::from_le_bytes(slice);
-        (value % 3 + 1) as usize // Rounds between 1 and 3
+    fn calculate_sha3_rounds(input: [u8; 32]) -> Result<usize, String> {
+        let slice = &input[SHA3_ROUND_OFFSET..SHA3_ROUND_OFFSET + ROUND_RANGE_SIZE];
+
+        if slice.len() == ROUND_RANGE_SIZE {
+            let value = u32::from_le_bytes(slice.try_into().map_err(|_| "Failed to convert slice to u32".to_string())?);
+            Ok((value % 3 + 1) as usize) // Rounds between 1 and 3
+        } else {
+            Err("Input slice for SHA3 rounds is invalid".to_string())
+        }
     }
     
 
