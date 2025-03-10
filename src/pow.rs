@@ -14,6 +14,12 @@ mod heavy_hash;
 mod keccak;
 mod xoshiro;
 use sha3::{Sha3_256, Digest};
+use blake3;
+
+// Constants for the offsets
+const SHA3_ROUND_OFFSET: usize = 8;
+const B3_ROUND_OFFSET: usize = 4;
+const ROUND_RANGE_SIZE: usize = 4;
 
 #[derive(Clone)]
 pub struct State {
@@ -41,6 +47,59 @@ impl State {
 
         Ok(Self { id, matrix, nonce: 0, target, block, hasher })
     }
+
+
+    // SHA3-256 Hash Function
+    fn sha3_hash(input: [u8; 32]) -> Result<[u8; 32], String> {
+        let mut sha3_hasher = Sha3_256::new();
+        sha3_hasher.update(&input);
+        let hash = sha3_hasher.finalize();
+        Ok(hash.into())
+    }
+
+    // Blake3 Hash Function
+    fn blake3_hash(input: [u8; 32]) -> Result<[u8; 32], String> {
+        let hash = blake3::hash(&input);
+        Ok(hash.into()) 
+    }
+
+    // Calculate Blake3 rounds based on input
+    fn calculate_b3_rounds(input: [u8; 32]) -> usize {
+        let slice: [u8; 4] = input[B3_ROUND_OFFSET..B3_ROUND_OFFSET + ROUND_RANGE_SIZE]
+            .try_into()
+            .unwrap();
+        let value = u32::from_le_bytes(slice);
+        (value % 3 + 1) as usize // Rounds between 1 and 3
+    }
+
+    // Calculate SHA3 rounds based on input
+    fn calculate_sha3_rounds(input: [u8; 32]) -> usize {
+        let slice: [u8; 4] = input[SHA3_ROUND_OFFSET..SHA3_ROUND_OFFSET + ROUND_RANGE_SIZE]
+            .try_into()
+            .unwrap();
+        let value = u32::from_le_bytes(slice);
+        (value % 3 + 1) as usize // Rounds between 1 and 3
+    }
+    
+
+    // Bitwise manipulations on data
+    fn bit_manipulations(data: &mut [u8; 32]) {
+        for i in 0..32 {
+            data[i] ^= data[(i + 1) % 32]; // XOR with the next byte
+            data[i] = data[i].rotate_left(3); // Rotate left by 3 bits
+            data[i] ^= i as u8; // XOR with the index value
+        }
+    }
+
+    // Mix SHA3 and Blake3 hashes by XORing their bytes.
+    fn byte_mixing(sha3_hash: &[u8; 32], b3_hash: &[u8; 32]) -> [u8; 32] {
+        let mut temp_buf = [0u8; 32];
+        for i in 0..32 {
+            temp_buf[i] = sha3_hash[i] ^ b3_hash[i]; // XOR byte by byte
+        }
+        temp_buf
+    }
+
 
     #[inline(always)]
     // PRE_POW_HASH || TIME || 32 zero byte padding || NONCE
