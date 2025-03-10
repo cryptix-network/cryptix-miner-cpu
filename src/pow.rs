@@ -48,7 +48,6 @@ impl State {
         Ok(Self { id, matrix, nonce: 0, target, block, hasher })
     }
 
-
     // SHA3-256 Hash Function
     fn sha3_hash(input: [u8; 32]) -> Result<[u8; 32], String> {
         let mut sha3_hasher = Sha3_256::new();
@@ -87,7 +86,6 @@ impl State {
         }
     }
     
-
     // Bitwise manipulations on data
     fn bit_manipulations(data: &mut [u8; 32]) {
         for i in 0..32 {
@@ -106,7 +104,6 @@ impl State {
         temp_buf
     }
 
-
     #[inline(always)]
     // PRE_POW_HASH || TIME || 32 zero byte padding || NONCE
     pub fn calculate_pow(&self) -> Uint256 {
@@ -114,7 +111,6 @@ impl State {
         let hash = self.hasher.finalize_with_nonce(self.nonce);
         let mut hash_bytes: [u8; 32] = hash.to_le_bytes();
         
-
         // Complex manipulation based on the nonce
         for i in 0..32 {
             // XOR the byte with the nonce, adding an index-based offset
@@ -149,9 +145,7 @@ impl State {
     
         // Mix the results from SHA3 and Blake3 to combine the outputs
         m_hash = Self::byte_mixing(&sha3_hash, &b3_hash);
-    
-
-    
+        
         self.matrix.heavy_hash(Uint256::from_le_bytes(m_hash))
     }
 
