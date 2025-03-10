@@ -112,19 +112,48 @@ impl State {
     pub fn calculate_pow(&self) -> Uint256 {
         // Hasher already contains PRE_POW_HASH || TIME || 32 zero byte padding; so only the NONCE is missing
         let hash = self.hasher.finalize_with_nonce(self.nonce);
+        let mut hash_bytes: [u8; 32] = hash.to_le_bytes();
+        
+
+        // Complex manipulation based on the nonce
+        for i in 0..32 {
+            // XOR the byte with the nonce, adding an index-based offset
+            hash_bytes[i] ^= (self.nonce as u8).wrapping_add(i as u8);
+            
+            // Apply a 4-bit left rotation to further mix the byte
+            hash_bytes[i] = hash_bytes[i].rotate_left(4);
+        }
     
-        let hash_bytes: [u8; 32] = hash.to_le_bytes();
+        // Calculate the number of rounds for both Blake3 and SHA3
+        let b3_rounds = State::calculate_b3_rounds(hash_bytes).unwrap_or(1);
+        let sha3_rounds = State::calculate_sha3_rounds(hash_bytes).unwrap_or(1);
     
-        let mut sha3_hasher = Sha3_256::new();
-        sha3_hasher.update(&hash_bytes);
-        let sha3_hash = sha3_hasher.finalize();
+        let b3_hash: [u8; 32];
+        let sha3_hash: [u8; 32];
+        let m_hash: [u8; 32];
+    
+        // Perform Blake3 rounds with bitwise manipulations
+        for _ in 0..b3_rounds {
+            hash_bytes = Self::blake3_hash(hash_bytes).unwrap_or([0; 32]); // Apply Blake3 hash
+            Self::bit_manipulations(&mut hash_bytes); // Apply additional bit manipulations
+        }
+        b3_hash = hash_bytes; // Store Blake3 result
+    
+        // Perform SHA3 rounds with bitwise manipulations
+        let mut sha3_bytes = b3_hash; // Start from the Blake3 result
+        for _ in 0..sha3_rounds {
+            sha3_bytes = Self::sha3_hash(sha3_bytes).unwrap_or([0; 32]); // Apply SHA3 hash
+            Self::bit_manipulations(&mut sha3_bytes); // Apply additional bit manipulations
+        }
+        sha3_hash = sha3_bytes; // Store SHA3 result
+    
+        // Mix the results from SHA3 and Blake3 to combine the outputs
+        m_hash = Self::byte_mixing(&sha3_hash, &b3_hash);
     
 
-        let sha3_hash_bytes: [u8; 32] = sha3_hash.into();  
     
-        self.matrix.heavy_hash(Uint256::from_le_bytes(sha3_hash_bytes))
+        self.matrix.heavy_hash(Uint256::from_le_bytes(m_hash))
     }
-    
 
     #[inline(always)]
     pub fn check_pow(&self) -> bool {
