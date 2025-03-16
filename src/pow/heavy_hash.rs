@@ -4,9 +4,6 @@ use crate::{
 };
 use std::mem::MaybeUninit;
 
-// ### Constants
-const H_MEM: usize = 4 * 1024 * 1024; // Memory size 4MB
-const H_MEM_U32: usize = H_MEM / 4; // Memory size in u32 elements
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct Matrix([[u16; 64]; 64]);
@@ -104,53 +101,69 @@ impl Matrix {
         rank
     }
 
-    fn xorshift32(state: &mut u32) -> u32 {
-        let mut x = *state;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        *state = x;
-        x
-    }
-    
-    fn fill_memory(seed: &[u8; 32], memory: &mut Vec<u8>) {
-        assert!(memory.len() % 4 == 0, "Memory length must be a multiple of 4 bytes");
-    
-        // Derive initial state using all 32 bytes
-        let mut state = 0u32;
-        for i in (0..32).step_by(4) {
-            let chunk = u32::from_le_bytes([
-                seed[i],
-                seed[i + 1],
-                seed[i + 2],
-                seed[i + 3],
-            ]);
-            state ^= chunk; // XOR each 4-byte chunk into the state
+    // Const Final Cryptix
+    const FINAL_CRYPTIX: [u8; 32] = [
+        0xE4, 0x7F, 0x3F, 0x73, 
+        0xB4, 0xF2, 0xD2, 0x8C, 
+        0x55, 0xD1, 0xE7, 0x6B, 
+        0xE0, 0xAD, 0x70, 0x55, 
+        0xCB, 0x3F, 0x8C, 0x8F, 
+        0xF5, 0xA0, 0xE2, 0x60, 
+        0x81, 0xC2, 0x5A, 0x84, 
+        0x32, 0x81, 0xE4, 0x92,
+    ];    
+
+    // Anti-ASIC cache
+    pub fn anti_asic_cache(product: &mut [u8; 32]) {
+        const CACHE_SIZE: usize = 4096;  // 4 KB
+        let mut cache = [0u8; CACHE_SIZE];
+
+        let mut index: usize = 0;
+
+        // Cache initialization
+        let mut hash_value = 0u8;
+        for i in 0..CACHE_SIZE { 
+            // Combine product values with cache indices
+            hash_value = (product[i % 32] ^ i as u8).wrapping_add(hash_value);
+            cache[i] = hash_value;  // starting pattern
         }
-    
-        let num_elements = H_MEM_U32;
-    
-        // Fill memory with u32 values as bytes
-        for i in 0..num_elements {
-            let value = Self::xorshift32(&mut state);
-            let offset = i * 4;
-            memory[offset]     = (value & 0xFF) as u8;
-            memory[offset + 1] = ((value >> 8) & 0xFF) as u8;
-            memory[offset + 2] = ((value >> 16) & 0xFF) as u8;
-            memory[offset + 3] = ((value >> 24) & 0xFF) as u8;
+        
+        for _ in 0..8 { 
+            for i in 0..32 {
+                // XOR for destructive cache effect
+                index = (index.rotate_left(5) ^ (product[i] as usize).wrapping_mul(17)) % CACHE_SIZE;
+                cache[index] ^= product[i]; 
+                
+                // Unpredictable index mapping
+                let safe_index = ((index * 7) % CACHE_SIZE).min(CACHE_SIZE - 1);
+                index = (index.wrapping_add(product[i] as usize * 23) ^ cache[safe_index] as usize) % CACHE_SIZE;
+                cache[index] ^= product[(i + 11) % 32];
+
+                // Data-Dependent Memory Access
+                let dynamic_offset = ((cache[index] as usize * 37) ^ (product[i] as usize * 19)) % CACHE_SIZE;
+                cache[dynamic_offset] ^= product[(i + 3) % 32];
+            }
         }
+
+        // Link cache values ​​back to product
+        for i in 0..32{
+            let shift_val = (product[i] as usize * 47 + i) % CACHE_SIZE;
+            product[i] ^= cache[shift_val];
+        }
+        
     }
 
-    const FINAL_X: [u8; 32] = [
-        0x3F, 0xC2, 0xF2, 0xE2,
-        0xD1, 0x55, 0x81, 0x92,
-        0xA0, 0x6B, 0xF5, 0x3F,
-        0x5A, 0x70, 0x32, 0xB4,
-        0xE4, 0x84, 0xE4, 0xCB,
-        0x81, 0x73, 0xE7, 0xE0,
-        0xD2, 0x7F, 0x8C, 0x55,
-        0xAD, 0x8C, 0x60, 0x8F,
-        ];
+    // Non linear sbox
+    pub fn generate_non_linear_sbox(input: u8, key: u8) -> u8 {
+        let mut result = input;
+    
+        // A combination of multiplication and bitwise permutation
+        result = result.wrapping_mul(key);          // Multiply by the key
+        result = (result >> 3) | (result << 5);    // Bitwise permutation (rotation)
+        result ^= 0x5A;                             // XOR
+    
+        result
+    }
 
     pub fn heavy_hash(&self, hash: Hash) -> Hash {
         // Convert the hash to its byte representation
@@ -185,26 +198,60 @@ impl Matrix {
         // XOR the product with the original hash
         product.iter_mut().zip(hash_bytes.iter()).for_each(|(p, h)| *p ^= h);
 
+        // **Memory-Hard**
+        let mut memory_table: [u8; 16 * 1024] = [0; 16 * 1024]; // 16 KB
+        let mut index: usize = 0;
+
+        // Repeat calculations and manipulations on memory
+        for i in 0..32 {
+            let mut sum = 0u16;
+            for j in 0..64 {
+                sum += nibbles[j] as u16 * self.0[2 * i][j] as u16;
+            }
+
+            // ** non-linear memory accesses:**
+            for _ in 0..12 { 
+                index ^= (memory_table[(index * 7 + i) % memory_table.len()] as usize * 19) ^ ((i * 53) % 13);
+                index = (index * 73 + i * 41) % memory_table.len(); 
+            
+                // Index paths
+                let shifted = (index.wrapping_add(i * 13)) % memory_table.len();
+                memory_table[shifted] ^= (sum & 0xFF) as u8;
+            }
+        }
+
+        // Final memory-hash result
+        for i in 0..32 {
+            let shift_val = (product[i] as usize * 47 + i) % memory_table.len();
+            product[i] ^= memory_table[shift_val];
+        }
+
         // final xor
         for i in 0..32 {
-            product[i] ^= Self::FINAL_X[i];
+            product[i] ^= Self::FINAL_CRYPTIX[i];
         }
 
-        // Initialize a 32-byte seed value
-        let seed: [u8; 32] = hash.to_le_bytes();
+        // **Anti-ASIC Cache **
+        Self::anti_asic_cache(&mut product);
 
-        // Create the vector 'memory' with the size 'H_MEM'
-        let mut memory: Vec<u8> = vec![0; H_MEM];
-   
+        // **Apply nonlinear S-Box**
+        let mut sbox: [u8; 256] = [0; 256];
 
-        // Fill the 'memory' vector with random values ​​using 'fill_memory'
-        Self::fill_memory(&seed, &mut memory);
+        // Calculate S-Box with the product value and hash values
+        for _ in 0..6 {  
+            for i in 0..256 { 
+                let mut value = i as u8;
+                value = Self::generate_non_linear_sbox(value, hash_bytes[i % hash_bytes.len()]);
+                value ^= value.rotate_left(4) | value.rotate_right(2);
+                sbox[i] = value;
+            }
+        }
 
-         // XOR memory product
+        // Apply S-Box to the product
         for i in 0..32 {
-            product[i] ^= memory[i];
+            product[i] = sbox[product[i] as usize];
         }
-
+    
         // Return the calculated hash
         HeavyHasher::hash(Hash::from_le_bytes(product))
     }

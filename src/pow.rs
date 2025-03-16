@@ -48,6 +48,7 @@ impl State {
         Ok(Self { id, matrix, nonce: 0, target, block, hasher })
     }
 
+
     // SHA3-256 Hash Function
     fn sha3_hash(input: [u8; 32]) -> Result<[u8; 32], String> {
         let mut sha3_hasher = Sha3_256::new();
@@ -62,44 +63,58 @@ impl State {
         Ok(hash.into()) 
     }
 
-    // Calculate Blake3 rounds based on input
+    // **Calculate BLAKE3 rounds based on input**
     fn calculate_b3_rounds(input: [u8; 32]) -> Result<usize, String> {
-        let slice = &input[B3_ROUND_OFFSET..B3_ROUND_OFFSET + ROUND_RANGE_SIZE];
-
-        if slice.len() == ROUND_RANGE_SIZE {
-            let value = u32::from_le_bytes(slice.try_into().map_err(|_| "Failed to convert slice to u32".to_string())?);
-            Ok((value % 3 + 1) as usize) // Rounds between 1 and 3
-        } else {
-            Err("Input slice for Blake3 rounds is invalid".to_string())
-        }
-    }
-
-    // Calculate SHA3 rounds based on input
-    fn calculate_sha3_rounds(input: [u8; 32]) -> Result<usize, String> {
-        let slice = &input[SHA3_ROUND_OFFSET..SHA3_ROUND_OFFSET + ROUND_RANGE_SIZE];
-
-        if slice.len() == ROUND_RANGE_SIZE {
-            let value = u32::from_le_bytes(slice.try_into().map_err(|_| "Failed to convert slice to u32".to_string())?);
-            Ok((value % 3 + 1) as usize) // Rounds between 1 and 3
-        } else {
-            Err("Input slice for SHA3 rounds is invalid".to_string())
-        }
-    }
+        // Extract the slice from input based on the B3_ROUND_OFFSET and ROUND_RANGE_SIZE
+        let slice = input.get(B3_ROUND_OFFSET..B3_ROUND_OFFSET + ROUND_RANGE_SIZE)
+            .ok_or("Input slice for Blake3 rounds is out of bounds")?;
     
+        let value = u32::from_le_bytes(slice.try_into().map_err(|_| "Failed to convert slice to u32".to_string())?);
+        Ok((value % 5 + 1) as usize) // Returns rounds between 1 and 5
+    }
+
+    // **Calculate SHA3 rounds based on input**
+    fn calculate_sha3_rounds(input: [u8; 32]) -> Result<usize, String> {
+        // Extract the slice from input based on the SHA3_ROUND_OFFSET and ROUND_RANGE_SIZE
+        let slice = input.get(SHA3_ROUND_OFFSET..SHA3_ROUND_OFFSET + ROUND_RANGE_SIZE)
+            .ok_or("Input slice for SHA3 rounds is out of bounds")?;
+    
+        let value = u32::from_le_bytes(slice.try_into().map_err(|_| "Failed to convert slice to u32".to_string())?);
+        Ok((value % 4 + 1) as usize) // Returns rounds between 1 and 4
+    }
+
     // Bitwise manipulations on data
     fn bit_manipulations(data: &mut [u8; 32]) {
         for i in 0..32 {
-            data[i] ^= data[(i + 1) % 32]; // XOR with the next byte
-            data[i] = data[i].rotate_left(3); // Rotate left by 3 bits
-            data[i] ^= i as u8; // XOR with the index value
+            // Non-linear manipulations with pseudo-random patterns
+            let b = data[(i + 1) % 32];
+            data[i] ^= b; // XOR with next byte
+            data[i] = data[i].rotate_left(3); // Rotation
+            data[i] = data[i].wrapping_add(0x9F) & 0xFF; // Random constant
+            data[i] &= 0xFE; // AND with mask to set certain bits
+            data[i] ^= ((i as u8) << 2) & 0xFF; // XOR with index shifted
         }
     }
-
-    // Mix SHA3 and Blake3 hashes by XORing their bytes.
+    
+    // Byte Mixing
     fn byte_mixing(sha3_hash: &[u8; 32], b3_hash: &[u8; 32]) -> [u8; 32] {
         let mut temp_buf = [0u8; 32];
         for i in 0..32 {
-            temp_buf[i] = sha3_hash[i] ^ b3_hash[i]; // XOR byte by byte
+            let a = sha3_hash[i];
+            let b = b3_hash[i];
+            
+            // bitwise AND and OR
+            let and_result = a & b;
+            let or_result = a | b;
+            
+            // bitwise rotation and shift
+            let rotated = or_result.rotate_left(5);  // Rotate left by 5 bits
+            let shifted = and_result.wrapping_shl(3);  // Shift left by 3 bits
+            
+            // Combine the results
+            let mixed = rotated ^ shifted;  // XOR the results
+            
+            temp_buf[i] = mixed;  // Store the result in the temporary buffer
         }
         temp_buf
     }
@@ -113,24 +128,44 @@ impl State {
         
         // **Branches for Byte Manipulation**
         for i in 0..32 {
-            match (hash_bytes[i] ^ (self.nonce as u8)) % 6 {
-                0 => hash_bytes[i] = hash_bytes[i].wrapping_add(13),
-                1 => hash_bytes[i] = hash_bytes[i].rotate_left(3),
-                2 => hash_bytes[i] ^= 0x5A,
-                3 => hash_bytes[i] = hash_bytes[i].wrapping_mul(17),
-                4 => hash_bytes[i] = hash_bytes[i].wrapping_sub(29),
-                5 => hash_bytes[i] = hash_bytes[i].wrapping_add(0xAA ^ self.nonce as u8),
-                _ => unreachable!(),
+            let condition = (hash_bytes[i] ^ (self.nonce as u8)) % 6; // 6 Cases
+            match condition {
+                0 => {
+                    hash_bytes[i] = hash_bytes[i].wrapping_add(13); // Add 13
+                    hash_bytes[i] = hash_bytes[i].rotate_left(3);  // Rotate left by 3 bits
+                },
+                1 => {
+                    hash_bytes[i] = hash_bytes[i].wrapping_sub(7);  // Subtract 7
+                    hash_bytes[i] = hash_bytes[i].rotate_left(5);   // Rotate left by 5 bits
+                },
+                2 => {
+                    hash_bytes[i] ^= 0x5A;                         // XOR with 0x5A
+                    hash_bytes[i] = hash_bytes[i].wrapping_add(0xAC); // Add 0xAC
+                },
+                3 => {
+                    hash_bytes[i] = hash_bytes[i].wrapping_mul(17); // Multiply by 17
+                    hash_bytes[i] ^= 0xAA;                          // XOR with 0xAA
+                },
+                4 => {
+                    hash_bytes[i] = hash_bytes[i].wrapping_sub(29); // Subtract 29
+                    hash_bytes[i] = hash_bytes[i].rotate_left(1);  // Rotate left by 1 bit
+                },
+                5 => {
+                    hash_bytes[i] = hash_bytes[i].wrapping_add(0xAA ^ self.nonce as u8); // Add XOR of 0xAA and nonce
+                    hash_bytes[i] ^= 0x45;                          // XOR with 0x45
+                },
+                _ => unreachable!(), // Should never happens
             }
         }
+
 
         // **Bitmanipulation**
         Self::bit_manipulations(&mut hash_bytes);
 
-        let b3_rounds = State::calculate_b3_rounds(hash_bytes).unwrap_or(1);
-        let sha3_rounds = State::calculate_sha3_rounds(hash_bytes).unwrap_or(1);
+        let b3_rounds = State::calculate_b3_rounds(hash_bytes).unwrap_or(1); // default 1
+        let sha3_rounds = State::calculate_sha3_rounds(hash_bytes).unwrap_or(1); // default 1
 
-        let extra_rounds = (hash_bytes[0] % 7) as usize;  // dynamic rounds
+        let extra_rounds = (hash_bytes[0] % 6) as usize;  // Dynamic rounds 0 - 5
 
         let sha3_hash: [u8; 32];
         let b3_hash: [u8; 32];
@@ -138,31 +173,31 @@ impl State {
 
         // **Dynamic Number of Rounds for Blake3**
         for _ in 0..(b3_rounds + extra_rounds) {
-            hash_bytes = Self::blake3_hash(hash_bytes).unwrap_or([0; 32]);
+            hash_bytes = Self::blake3_hash(hash_bytes).unwrap_or([0; 32]); // Apply Blake3 hash
 
-            // Branching inside hash calculation
-            if hash_bytes[5] % 2 == 0 {
-                hash_bytes[10] ^= 0xAA;
+            // Branching based on hash value
+            if hash_bytes[5] % 2 == 0 { 
+                hash_bytes[10] ^= 0xAA; // XOR with 0xAA if byte 5 is even
             } else {
-                hash_bytes[15] = hash_bytes[15].wrapping_add(23);
+                hash_bytes[15] = hash_bytes[15].wrapping_add(23); // Add 23 if byte 5 is odd
             }
         }
 
-        b3_hash = hash_bytes;
+        b3_hash = hash_bytes; // Store final Blake3 hash
 
         // **Dynamic Number of Rounds for SHA3**
         for _ in 0..(sha3_rounds + extra_rounds) {
-            hash_bytes = Self::sha3_hash(hash_bytes).unwrap_or([0; 32]);
+            hash_bytes = Self::sha3_hash(hash_bytes).unwrap_or([0; 32]); // Apply SHA3 hash
 
             // ASIC-unfriendly conditions
-            if hash_bytes[3] % 3 == 0 {
-                hash_bytes[20] ^= 0x55;
-            } else if hash_bytes[7] % 5 == 0 {
-                hash_bytes[25] = hash_bytes[25].rotate_left(7);
+            if hash_bytes[3] % 3 == 0 { 
+                hash_bytes[20] ^= 0x55; // XOR with 0x55 if byte 3 is divisible by 3
+            } else if hash_bytes[7] % 5 == 0 { 
+                hash_bytes[25] = hash_bytes[25].rotate_left(7); // Rotate left by 7 if byte 7 is divisible by 5
             }
         }
 
-        sha3_hash = hash_bytes;
+        sha3_hash = hash_bytes; // Store final sha3 hash
 
         // Mix SHA3 and Blake3 hash results
         m_hash = Self::byte_mixing(&sha3_hash, &b3_hash);
