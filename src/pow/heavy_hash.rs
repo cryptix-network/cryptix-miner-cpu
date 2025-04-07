@@ -101,75 +101,209 @@ impl Matrix {
         rank
     }
 
-    // Const Final Cryptix
-    const FINAL_CRYPTIX: [u8; 32] = [
-        0xE4, 0x7F, 0x3F, 0x73, 
-        0xB4, 0xF2, 0xD2, 0x8C, 
-        0x55, 0xD1, 0xE7, 0x6B, 
-        0xE0, 0xAD, 0x70, 0x55, 
-        0xCB, 0x3F, 0x8C, 0x8F, 
-        0xF5, 0xA0, 0xE2, 0x60, 
-        0x81, 0xC2, 0x5A, 0x84, 
-        0x32, 0x81, 0xE4, 0x92,
-    ];    
-
-    // Anti-ASIC cache
-    pub fn anti_asic_cache(product: &mut [u8; 32]) {
-        const CACHE_SIZE: usize = 4096;  // 4 KB
-        let mut cache = [0u8; CACHE_SIZE];
-
-        let mut index: usize = 0;
-
-        // Cache initialization
-        let mut hash_value = 0u8;
-        for i in 0..CACHE_SIZE { 
-            // Combine product values with cache indices
-            hash_value = (product[i % 32] ^ i as u8).wrapping_add(hash_value);
-            cache[i] = hash_value;  // starting pattern
+    // ***Anti-FPGA Sidedoor***
+    fn chaotic_random(x: u32) -> u32 {
+        (x.wrapping_mul(362605)) ^ 0xA5A5A5A5
+    }
+    
+    fn memory_intensive_mix(seed: u32) -> u32 {
+        let mut acc = seed;
+        for i in 0..32 {
+            acc = (acc * 16625) ^ i;
         }
+        acc
+    }
+    
+    fn recursive_fibonacci_modulated(mut x: u32, depth: u8) -> u32 {
+        let mut a = 1u32;
+        let mut b = x | 1;
         
-        for _ in 0..8 { 
-            for i in 0..32 {
-                // XOR for destructive cache effect
-                index = (index.rotate_left(5) ^ (product[i] as usize).wrapping_mul(17)) % CACHE_SIZE;
-                cache[index] ^= product[i]; 
-                
-                // Unpredictable index mapping
-                let safe_index = ((index * 7) % CACHE_SIZE).min(CACHE_SIZE - 1);
-                index = (index.wrapping_add(product[i] as usize * 23) ^ cache[safe_index] as usize) % CACHE_SIZE;
-                cache[index] ^= product[(i + 11) % 32];
-
-                // Data-Dependent Memory Access
-                let dynamic_offset = ((cache[index] as usize * 37) ^ (product[i] as usize * 19)) % CACHE_SIZE;
-                cache[dynamic_offset] ^= product[(i + 3) % 32];
-            }
+        let actual_depth = depth.min(8);
+    
+        for _ in 0..actual_depth {
+            let temp = b;
+            b = b.wrapping_add(a ^ (x.rotate_left((b % 17) as u32)));
+            a = temp;
+            x = x.rotate_right((a % 13) as u32) ^ b;
         }
-
-        // Link cache values ​​back to product
-        for i in 0..32{
-            let shift_val = (product[i] as usize * 47 + i) % CACHE_SIZE;
-            product[i] ^= cache[shift_val];
+    
+        x
+    }
+    
+    fn anti_fpga_hash(input: u32) -> u32 {
+        let mut x = input;
+        let noise = Self::memory_intensive_mix(x);
+        let depth = ((noise & 0x0F) + 10) as u8;
+    
+        let prime_factor_sum = x.count_ones() as u32;
+    
+        x ^= prime_factor_sum;
+    
+        x = Self::recursive_fibonacci_modulated(x ^ noise, depth);
+        x ^= Self::memory_intensive_mix(x.rotate_left(9));
+    
+        x
+    }
+    
+    fn compute_after_comp_product(pre_comp_product: [u8; 32]) -> [u8; 32] {
+        let mut after_comp_product = [0u8; 32];
+    
+        for i in 0..32 {
+            let input = pre_comp_product[i] as u32 ^ ((i as u32) << 8);
+            let normalized_input = input % 256;
+            let modified_input = Self::chaotic_random(normalized_input);
+    
+            let hashed = Self::anti_fpga_hash(modified_input);
+            after_comp_product[i] = (hashed & 0xFF) as u8;
         }
+    
+        after_comp_product
+    }
+    
+    // ***Octionion Multiply***
+    fn octonion_multiply(a: &[i64; 8], b: &[i64; 8]) -> [i64; 8] {
+        let mut result = [0; 8];
+
+         /*
+            Multiplication table of octonions (non-commutative):
+
+                ×    |  1   e₁   e₂   e₃   e₄   e₅   e₆   e₇  
+                ------------------------------------------------
+                1    |  1   e₁   e₂   e₃   e₄   e₅   e₆   e₇  
+                e₁   | e₁  -1   e₃  -e₂   e₅  -e₆   e₄  -e₇  
+                e₂   | e₂  -e₃  -1    e₁   e₆   e₄  -e₅   e₇  
+                e₃   | e₃   e₂  -e₁  -1    e₄  -e₇   e₆  -e₅  
+                e₄   | e₄  -e₅  -e₆  -e₄  -1    e₇   e₂   e₃  
+                e₅   | e₅   e₆   e₄   e₇  -e₇  -1   -e₃   e₂  
+                e₆   | e₆  -e₄  -e₅   e₆  -e₂   e₃  -1    e₁  
+                e₇   | e₇   e₄  -e₇   e₅  -e₃  -e₂   e₁  -1  
+        */
         
+         // e0
+        result[0] = a[0].wrapping_mul(b[0])
+            .wrapping_sub(a[1].wrapping_mul(b[1]))
+            .wrapping_sub(a[2].wrapping_mul(b[2]))
+            .wrapping_sub(a[3].wrapping_mul(b[3]))
+            .wrapping_sub(a[4].wrapping_mul(b[4]))
+            .wrapping_sub(a[5].wrapping_mul(b[5]))
+            .wrapping_sub(a[6].wrapping_mul(b[6]))
+            .wrapping_sub(a[7].wrapping_mul(b[7]));
+        
+         // e1
+        result[1] = a[0].wrapping_mul(b[1])
+            .wrapping_add(a[1].wrapping_mul(b[0]))
+            .wrapping_add(a[2].wrapping_mul(b[3]))
+            .wrapping_sub(a[3].wrapping_mul(b[2]))
+            .wrapping_add(a[4].wrapping_mul(b[5]))
+            .wrapping_sub(a[5].wrapping_mul(b[4]))
+            .wrapping_sub(a[6].wrapping_mul(b[7]))
+            .wrapping_add(a[7].wrapping_mul(b[6]));
+
+         // e2
+        result[2] = a[0].wrapping_mul(b[2])
+            .wrapping_sub(a[1].wrapping_mul(b[3]))
+            .wrapping_add(a[2].wrapping_mul(b[0]))
+            .wrapping_add(a[3].wrapping_mul(b[1]))
+            .wrapping_add(a[4].wrapping_mul(b[6]))
+            .wrapping_sub(a[5].wrapping_mul(b[7]))
+            .wrapping_add(a[6].wrapping_mul(b[4]))
+            .wrapping_sub(a[7].wrapping_mul(b[5]));
+
+       // e3
+        result[3] = a[0].wrapping_mul(b[3])
+            .wrapping_add(a[1].wrapping_mul(b[2]))
+            .wrapping_sub(a[2].wrapping_mul(b[1]))
+            .wrapping_add(a[3].wrapping_mul(b[0]))
+            .wrapping_add(a[4].wrapping_mul(b[7]))
+            .wrapping_add(a[5].wrapping_mul(b[6]))
+            .wrapping_sub(a[6].wrapping_mul(b[5]))
+            .wrapping_add(a[7].wrapping_mul(b[4]));
+    
+         // e4
+        result[4] = a[0].wrapping_mul(b[4])
+            .wrapping_sub(a[1].wrapping_mul(b[5]))
+            .wrapping_sub(a[2].wrapping_mul(b[6]))
+            .wrapping_sub(a[3].wrapping_mul(b[7]))
+            .wrapping_add(a[4].wrapping_mul(b[0]))
+            .wrapping_add(a[5].wrapping_mul(b[1]))
+            .wrapping_add(a[6].wrapping_mul(b[2]))
+            .wrapping_add(a[7].wrapping_mul(b[3]));
+    
+         // e5
+        result[5] = a[0].wrapping_mul(b[5])
+            .wrapping_add(a[1].wrapping_mul(b[4]))
+            .wrapping_sub(a[2].wrapping_mul(b[7]))
+            .wrapping_add(a[3].wrapping_mul(b[6]))
+            .wrapping_sub(a[4].wrapping_mul(b[1]))
+            .wrapping_add(a[5].wrapping_mul(b[0]))
+            .wrapping_add(a[6].wrapping_mul(b[3]))
+            .wrapping_add(a[7].wrapping_mul(b[2]));
+    
+         // e6
+        result[6] = a[0].wrapping_mul(b[6])
+            .wrapping_add(a[1].wrapping_mul(b[7]))
+            .wrapping_add(a[2].wrapping_mul(b[4]))
+            .wrapping_sub(a[3].wrapping_mul(b[5]))
+            .wrapping_sub(a[4].wrapping_mul(b[2]))
+            .wrapping_add(a[5].wrapping_mul(b[3]))
+            .wrapping_add(a[6].wrapping_mul(b[0]))
+            .wrapping_add(a[7].wrapping_mul(b[1]));
+
+         // e7
+        result[7] = a[0].wrapping_mul(b[7])
+            .wrapping_sub(a[1].wrapping_mul(b[6]))
+            .wrapping_add(a[2].wrapping_mul(b[5]))
+            .wrapping_add(a[3].wrapping_mul(b[4]))
+            .wrapping_sub(a[4].wrapping_mul(b[3]))
+            .wrapping_add(a[5].wrapping_mul(b[2]))
+            .wrapping_add(a[6].wrapping_mul(b[1]))
+            .wrapping_add(a[7].wrapping_mul(b[0]));
+        
+        // Result
+        return result;
     }
 
-    // Non linear sbox
-    pub fn generate_non_linear_sbox(input: u8, key: u8) -> u8 {
-        let mut result = input;
+    // Octonion Hash
+    fn octonion_hash(input_hash: &[u8; 32]) -> [i64; 8] {
+
+        // Initialize the octonion with the first 8 bytes of the input_hash
+        let mut oct = [
+            input_hash[0] as i64,  // e0
+            input_hash[1] as i64,  // e1
+            input_hash[2] as i64,  // e2
+            input_hash[3] as i64,  // e3
+            input_hash[4] as i64,  // e4
+            input_hash[5] as i64,  // e5
+            input_hash[6] as i64,  // e6
+            input_hash[7] as i64,  // e7
+        ];
+
+        // Loop through the remaining bytes of the input_hash        
+        for i in 8..input_hash.len() {
+            let rotation = [
+                input_hash[i % 32] as i64,        // e0
+                input_hash[(i + 1) % 32] as i64,  // e1
+                input_hash[(i + 2) % 32] as i64,  // e2
+                input_hash[(i + 3) % 32] as i64,  // e3
+                input_hash[(i + 4) % 32] as i64,  // e4
+                input_hash[(i + 5) % 32] as i64,  // e5
+                input_hash[(i + 6) % 32] as i64,  // e6
+                input_hash[(i + 7) % 32] as i64,  // e7
+            ];
+
+             // Perform octonion multiplication with the current rotation
+            oct = Self::octonion_multiply(&oct, &rotation);
+        }
     
-        // A combination of multiplication and bitwise permutation
-        result = result.wrapping_mul(key);          // Multiply by the key
-        result = (result >> 3) | (result << 5);    // Bitwise permutation (rotation)
-        result ^= 0x5A;                             // XOR
-    
-        result
-    }
+        // Return the resulting octonion 
+        oct
+    }    
 
     pub fn heavy_hash(&self, hash: Hash) -> Hash {
         // Convert the hash to its byte representation
         let hash_bytes = hash.to_le_bytes();
     
-        // Create an array containing the nibbles (4-bit halves of the bytes)
+        // Create an array containing the nibbles
         let mut nibbles = [0u8; 64];
         for (i, &byte) in hash_bytes.iter().enumerate() {
             nibbles[2 * i] = byte >> 4;
@@ -178,82 +312,216 @@ impl Matrix {
     
         // Matrix and vector multiplication
         let mut product = [0u8; 32];
+        let mut nibble_product = [0u8; 32];
+
         for i in 0..32 {
-            let mut sum1: u16 = 0;
-            let mut sum2: u16 = 0;
+            let mut sum1: u32 = 0;
+            let mut sum2: u32 = 0;
+            let mut sum3: u32 = 0;
+            let mut sum4: u32 = 0;
     
             for j in 0..64 {
-                let elem = nibbles[j] as u16;
-                sum1 += self.0[2 * i][j] * elem;
-                sum2 += self.0[2 * i + 1][j] * elem;
+                let elem = nibbles[j] as u32;
+                sum1 += (self.0[2 * i][j] as u32) * elem;
+                sum2 += (self.0[2 * i + 1][j] as u32) * elem;
+                sum3 += (self.0[1 * i + 2][j] as u32) * elem;
+                sum4 += (self.0[1 * i + 3][j] as u32) * elem;                
             }
-    
-            // Combine the nibbles back into bytes
-            let a_nibble = (sum1 & 0xF) ^ ((sum2 >> 4) & 0xF) ^ ((sum1 >> 8) & 0xF);
-            let b_nibble = (sum2 & 0xF) ^ ((sum1 >> 4) & 0xF) ^ ((sum2 >> 8) & 0xF);
-    
+
+           // Nibbles
+           //A
+           let a_nibble = (sum1 & 0xF) ^ ((sum2 >> 4) & 0xF) ^ ((sum3 >> 8) & 0xF) 
+                ^ ((sum1.wrapping_mul(0xABCD) >> 12) & 0xF) 
+                ^ ((sum1.wrapping_mul(0x1234) >> 8) & 0xF)
+                ^ ((sum2.wrapping_mul(0x5678) >> 16) & 0xF)
+                ^ ((sum3.wrapping_mul(0x9ABC) >> 4) & 0xF)
+                ^ ((sum1.rotate_left(3) & 0xF) ^ (sum3.rotate_right(5) & 0xF));  
+
+            // B
+            let b_nibble = (sum2 & 0xF) ^ ((sum1 >> 4) & 0xF) ^ ((sum4 >> 8) & 0xF) 
+                ^ ((sum2.wrapping_mul(0xDCBA) >> 14) & 0xF)
+                ^ ((sum2.wrapping_mul(0x8765) >> 10) & 0xF) 
+                ^ ((sum1.wrapping_mul(0x4321) >> 6) & 0xF)
+                ^ ((sum4.rotate_left(2) ^ sum1.rotate_right(1)) & 0xF); 
+
+            // C
+            let c_nibble = (sum3 & 0xF) ^ ((sum2 >> 4) & 0xF) ^ ((sum2 >> 8) & 0xF) 
+                ^ ((sum3.wrapping_mul(0xF135) >> 10) & 0xF)
+                ^ ((sum3.wrapping_mul(0x2468) >> 12) & 0xF) 
+                ^ ((sum4.wrapping_mul(0xACEF) >> 8) & 0xF)
+                ^ ((sum2.wrapping_mul(0x1357) >> 4) & 0xF)
+                ^ ((sum3.rotate_left(5) & 0xF) ^ (sum1.rotate_right(7) & 0xF));
+
+            // D
+            let d_nibble = (sum1 & 0xF) ^ ((sum4 >> 4) & 0xF) ^ ((sum1 >> 8) & 0xF)
+                ^ ((sum4.wrapping_mul(0x57A3) >> 6) & 0xF)
+                ^ ((sum3.wrapping_mul(0xD4E3) >> 12) & 0xF)
+                ^ ((sum1.wrapping_mul(0x9F8B) >> 10) & 0xF)
+                ^ ((sum4.rotate_left(4) ^ sum1.wrapping_add(sum2)) & 0xF);
+
+            // Combine c_nibble and d_nibble to form nibble_product
+            nibble_product[i] = ((c_nibble << 4) | d_nibble) as u8; 
+            
+            // Combine a_nibble and b_nibble to form product
             product[i] = ((a_nibble << 4) | b_nibble) as u8;
         }
     
-        // XOR the product with the original hash
+        // XOR the product with the original hash   
         product.iter_mut().zip(hash_bytes.iter()).for_each(|(p, h)| *p ^= h);
+        nibble_product.iter_mut().zip(hash_bytes.iter()).for_each(|(p, h)| *p ^= h);
 
-        // **Memory-Hard**
-        let mut memory_table: [u8; 16 * 1024] = [0; 16 * 1024]; // 16 KB
-        let mut index: usize = 0;
+        let product_before_oct = product.clone();
 
-        // Repeat calculations and manipulations on memory
+        // ** Octonion Function **
+        let octonion_result = Self::octonion_hash(&product);
+        
+        // XOR with i64 values - convert to u8
         for i in 0..32 {
-            let mut sum = 0u16;
-            for j in 0..64 {
-                sum += nibbles[j] as u16 * self.0[2 * i][j] as u16;
-            }
-
-            // ** non-linear memory accesses:**
-            for _ in 0..12 { 
-                index ^= (memory_table[(index * 7 + i) % memory_table.len()] as usize * 19) ^ ((i * 53) % 13);
-                index = (index * 73 + i * 41) % memory_table.len(); 
+            let oct_value = octonion_result[i / 8];
             
-                // Index paths
-                let shifted = (index.wrapping_add(i * 13)) % memory_table.len();
-                memory_table[shifted] ^= (sum & 0xFF) as u8;
-            }
+            // Extract the relevant byte from the i64 value
+            let oct_value_u8 = ((oct_value >> (8 * (i % 8))) & 0xFF) as u8; 
+
+            // XOR the values and store the result in the product
+            product[i] ^= oct_value_u8;
         }
 
-        // Final memory-hash result
-        for i in 0..32 {
-            let shift_val = (product[i] as usize * 47 + i) % memory_table.len();
-            product[i] ^= memory_table[shift_val];
-        }
+        // Debug before Sbox
+        // println!("Product before calculation: {:?}", product);
 
-        // final xor
-        for i in 0..32 {
-            product[i] ^= Self::FINAL_CRYPTIX[i];
-        }
-
-        // **Anti-ASIC Cache **
-        Self::anti_asic_cache(&mut product);
-
-        // **Apply nonlinear S-Box**
+        
+        // **Nonlinear S-Box**
         let mut sbox: [u8; 256] = [0; 256];
 
-        // Calculate S-Box with the product value and hash values
-        for _ in 0..6 {  
-            for i in 0..256 { 
-                let mut value = i as u8;
-                value = Self::generate_non_linear_sbox(value, hash_bytes[i % hash_bytes.len()]);
-                value ^= value.rotate_left(4) | value.rotate_right(2);
-                sbox[i] = value;
-            }
+        for i in 0..256 {
+            let i = i as u8;
+        
+            let (source_array, rotate_left_val, rotate_right_val) = 
+                if i < 16 { (&product, (nibble_product[3] ^ 0x4F).wrapping_mul(3) as u8, (hash_bytes[2] ^ 0xD3).wrapping_mul(5) as u8) }
+                else if i < 32 { (&hash_bytes, (product[7] ^ 0xA6).wrapping_mul(2) as u8, (nibble_product[5] ^ 0x5B).wrapping_mul(7) as u8) }
+                else if i < 48 { (&nibble_product, (product_before_oct[1] ^ 0x9C).wrapping_mul(9) as u8, (product[0] ^ 0x8E).wrapping_mul(3) as u8) }
+                else if i < 64 { (&hash_bytes, (product[6] ^ 0x71).wrapping_mul(4) as u8, (product_before_oct[3] ^ 0x2F).wrapping_mul(5) as u8) }
+                else if i < 80 { (&product_before_oct, (nibble_product[4] ^ 0xB2).wrapping_mul(3) as u8, (hash_bytes[7] ^ 0x6D).wrapping_mul(7) as u8) }
+                else if i < 96 { (&hash_bytes, (product[0] ^ 0x58).wrapping_mul(6) as u8, (nibble_product[1] ^ 0xEE).wrapping_mul(9) as u8) }
+                else if i < 112 { (&product, (product_before_oct[2] ^ 0x37).wrapping_mul(2) as u8, (hash_bytes[6] ^ 0x44).wrapping_mul(6) as u8) }
+                else if i < 128 { (&hash_bytes, (product[5] ^ 0x1A).wrapping_mul(5) as u8, (hash_bytes[4] ^ 0x7C).wrapping_mul(8) as u8) }
+                else if i < 144 { (&product_before_oct, (nibble_product[3] ^ 0x93).wrapping_mul(7) as u8, (product[2] ^ 0xAF).wrapping_mul(3) as u8) }
+                else if i < 160 { (&hash_bytes, (product[7] ^ 0x29).wrapping_mul(9) as u8, (nibble_product[5] ^ 0xDC).wrapping_mul(2) as u8) }
+                else if i < 176 { (&nibble_product, (product_before_oct[1] ^ 0x4E).wrapping_mul(4) as u8, (hash_bytes[0] ^ 0x8B).wrapping_mul(3) as u8) }
+                else if i < 192 { (&hash_bytes, (nibble_product[6] ^ 0xF3).wrapping_mul(5) as u8, (product_before_oct[3] ^ 0x62).wrapping_mul(8) as u8) }
+                else if i < 208 { (&product_before_oct, (product[4] ^ 0xB7).wrapping_mul(6) as u8, (product[7] ^ 0x15).wrapping_mul(2) as u8) }
+                else if i < 224 { (&hash_bytes, (product[0] ^ 0x2D).wrapping_mul(8) as u8, (product_before_oct[1] ^ 0xC8).wrapping_mul(7) as u8) }
+                else if i < 240 { (&product, (product_before_oct[2] ^ 0x6F).wrapping_mul(3) as u8, (nibble_product[6] ^ 0x99).wrapping_mul(9) as u8) }
+                else { (&hash_bytes, (nibble_product[5] ^ 0xE1).wrapping_mul(7) as u8, (hash_bytes[4] ^ 0x3B).wrapping_mul(5) as u8) };      
+        
+            let value = 
+                if i < 16 { (product[i as usize % 32].wrapping_mul(0x03).wrapping_add(i.wrapping_mul(0xAA))) & 0xFF }
+                else if i < 32 { (hash_bytes[(i - 16) as usize % 32].wrapping_mul(0x05).wrapping_add((i - 16).wrapping_mul(0xBB))) & 0xFF }
+                else if i < 48 { (product_before_oct[(i - 32) as usize % 32].wrapping_mul(0x07).wrapping_add((i - 32).wrapping_mul(0xCC))) & 0xFF }
+                else if i < 64 { (nibble_product[(i - 48) as usize % 32].wrapping_mul(0x0F).wrapping_add((i - 48).wrapping_mul(0xDD))) & 0xFF }
+                else if i < 80 { (product[(i - 64) as usize % 32].wrapping_mul(0x11).wrapping_add((i - 64).wrapping_mul(0xEE))) & 0xFF }
+                else if i < 96 { (hash_bytes[(i - 80) as usize % 32].wrapping_mul(0x13).wrapping_add((i - 80).wrapping_mul(0xFF))) & 0xFF }
+                else if i < 112 { (product_before_oct[(i - 96) as usize % 32].wrapping_mul(0x17).wrapping_add((i - 96).wrapping_mul(0x11))) & 0xFF }
+                else if i < 128 { (nibble_product[(i - 112) as usize % 32].wrapping_mul(0x19).wrapping_add((i - 112).wrapping_mul(0x22))) & 0xFF }
+                else if i < 144 { (product[(i - 128) as usize % 32].wrapping_mul(0x1D).wrapping_add((i - 128).wrapping_mul(0x33))) & 0xFF }
+                else if i < 160 { (hash_bytes[(i - 144) as usize % 32].wrapping_mul(0x1F).wrapping_add((i - 144).wrapping_mul(0x44))) & 0xFF }
+                else if i < 176 { (product_before_oct[(i - 160) as usize % 32].wrapping_mul(0x23).wrapping_add((i - 160).wrapping_mul(0x55))) & 0xFF }
+                else if i < 192 { (nibble_product[(i - 176) as usize % 32].wrapping_mul(0x29).wrapping_add((i - 176).wrapping_mul(0x66))) & 0xFF }
+                else if i < 208 { (product[(i - 192) as usize % 32].wrapping_mul(0x2F).wrapping_add((i - 192).wrapping_mul(0x77))) & 0xFF }
+                else if i < 224 { (hash_bytes[(i - 208) as usize % 32].wrapping_mul(0x31).wrapping_add((i - 208).wrapping_mul(0x88))) & 0xFF }
+                else if i < 240 { (product_before_oct[(i - 224) as usize % 32].wrapping_mul(0x37).wrapping_add((i - 224).wrapping_mul(0x99))) & 0xFF }
+                else { (nibble_product[(i - 240) as usize % 32].wrapping_mul(0x3F).wrapping_add((i - 240).wrapping_mul(0xAA))) & 0xFF };           
+        
+            let rotate_left_shift = (product[(i as usize + 1) % product.len()] as u32 + i as u32) % 8;
+            let rotate_right_shift = (hash_bytes[(i as usize + 2) % hash_bytes.len()] as u32 + i as u32) % 8;
+        
+            let rotation_left = rotate_left_val.rotate_left(rotate_left_shift);
+            let rotation_right = rotate_right_val.rotate_right(rotate_right_shift);
+        
+            let index = (i as usize + rotation_left as usize + rotation_right as usize) % source_array.len();
+            sbox[i as usize] = source_array[index] ^ value;
         }
 
-        // Apply S-Box to the product
-        for i in 0..32 {
-            product[i] = sbox[product[i] as usize];
+        // Update Sbox Values
+        let index = ((product_before_oct[2] % 8) + 1) as usize;  
+        let iterations = 1 + (product[index] % 2);
+
+        for _ in 0..iterations {
+            let mut temp_sbox = sbox;
+
+            for i in 0..256 {
+                let mut value = temp_sbox[i];
+
+                let rotate_left_shift = (product[(i + 1) % product.len()] as u32 + i as u32 + (i * 3) as u32) % 8;  
+                let rotate_right_shift = (hash_bytes[(i + 2) % hash_bytes.len()] as u32 + i as u32 + (i * 5) as u32) % 8; 
+
+                let rotated_value = value.rotate_left(rotate_left_shift) | value.rotate_right(rotate_right_shift);
+
+                let xor_value = {
+                    let base_value = (i as u8).wrapping_add(product[(i * 3) % product.len()] ^ hash_bytes[(i * 7) % hash_bytes.len()]) ^ 0xA5;
+                    let shifted_value = base_value.rotate_left((i % 8) as u32); 
+                    shifted_value ^ 0x55 
+                };
+
+                value ^= rotated_value ^ xor_value;
+                temp_sbox[i] = value; 
+            }
+
+            sbox = temp_sbox;
         }
-    
+
+        // Anti FPGA Sidedoor
+        let pre_comp_product: [u8; 32] = product;
+        let after_comp_product = Self::compute_after_comp_product(pre_comp_product);
+        
+        // Blake3 Chaining
+        let index_blake = ((product_before_oct[5] % 8) + 1) as usize;  
+        let iterations_blake = 1 + (product[index_blake] % 3);
+
+        let mut b3_hash_array = product.clone(); 
+        for _ in 0..iterations_blake {
+            // BLAKE3 Hashing
+            let mut b3_hasher = blake3::Hasher::new();
+            b3_hasher.update(&b3_hash_array);
+            let product_blake3 = b3_hasher.finalize();
+            let b3_hash_bytes = product_blake3.as_bytes();
+
+            // Convert
+            b3_hash_array.copy_from_slice(b3_hash_bytes);
+        }
+
+        // Sinus (Testnet)
+        // let sinus_in = product.clone();    
+        // let sinus_out = Self::sinusoidal_multiply(&sinus_in);
+
+        // Apply S-Box to the product with XOR
+        for i in 0..32 {
+            let ref_array = match (i * 31) % 4 { 
+                0 => &nibble_product,
+                1 => &hash_bytes,
+                2 => &product,
+                _ => &product_before_oct,
+            };
+
+            let byte_val = ref_array[(i * 13) % ref_array.len()] as usize;
+
+            let index = (byte_val 
+                        + product[(i * 31) % product.len()] as usize 
+                        + hash_bytes[(i * 19) % hash_bytes.len()] as usize 
+                        + i * 41) % 256;  
+            
+           b3_hash_array[i] ^= sbox[index]; 
+        }
+
+        // Final Xor
+        for i in 0..32 {
+            b3_hash_array[i] ^= after_comp_product[i];
+        }
+
+        // println!("hash after: {:?}", b3_hash_array);
+
         // Return the calculated hash
-        HeavyHasher::hash(Hash::from_le_bytes(product))
+        HeavyHasher::hash(Hash::from_le_bytes(b3_hash_array))
     }
 }
 
