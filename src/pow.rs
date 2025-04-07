@@ -14,12 +14,7 @@ mod heavy_hash;
 mod keccak;
 mod xoshiro;
 use sha3::{Sha3_256, Digest};
-use blake3;
 
-// Constants for the offsets
-const SHA3_ROUND_OFFSET: usize = 8;
-const B3_ROUND_OFFSET: usize = 4;
-const ROUND_RANGE_SIZE: usize = 4;
 
 #[derive(Clone)]
 pub struct State {
@@ -53,7 +48,7 @@ impl State {
     pub fn calculate_pow(&self) -> Uint256 {
         // Hasher already contains PRE_POW_HASH || TIME || 32 zero byte padding; so only the NONCE is missing
         let hash = self.hasher.finalize_with_nonce(self.nonce);
-        let mut hash_bytes: [u8; 32] = hash.to_le_bytes();
+        let hash_bytes: [u8; 32] = hash.to_le_bytes();
         
         // Determine number of iterations from the first byte of the hash
         let iterations = (hash_bytes[0] % 2) + 1;  // 1 - 2 iterations based on first byte
