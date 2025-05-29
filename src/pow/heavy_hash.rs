@@ -103,7 +103,7 @@ impl Matrix {
 
     // ***Anti-FPGA Sidedoor***
     fn chaotic_random(x: u32) -> u32 {
-        (x.wrapping_mul(362605)) ^ 0xA5A5A5A5
+        x.wrapping_mul(362605) ^ 0xA5A5A5A5
     }
     
     fn memory_intensive_mix(seed: u32) -> u32 {
